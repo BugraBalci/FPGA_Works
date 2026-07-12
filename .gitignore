@@ -8,6 +8,5 @@ simulation/
 *.qws
 *.bak
 *.txt
-*spi_master.v
-*temporary_main.v
+
 
