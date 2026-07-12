@@ -1,6 +1,7 @@
 module letter_selection (
     input wire [5:0] letter_id,
     output reg [7:0] letter_code
+	 input wire ac_or_let
 );
     always @(*) begin
         case(letter_id)
@@ -14,7 +15,7 @@ module letter_selection (
             6'd7:  letter_code = 8'b1001_0000; // g
             6'd8:  letter_code = 8'b1000_1001; // H
             6'd9:  letter_code = 8'b1111_1001; // I
-            6'd10: letter_code = 8'b1111_0001; // J
+            6'd10: assign letter_code = ac_or_let ? 8'b10001000 : 8'1000 1111 ; // J 4'hA: seg_out = 8'b10001000;assign HEX2 = sensor_is_active ? sysB_hex2 : sysA_hex2;
             6'd11: letter_code = 8'b1000_1010; // K
             6'd12: letter_code = 8'b1100_0111; // L
             6'd13: letter_code = 8'b1010_1010; // M

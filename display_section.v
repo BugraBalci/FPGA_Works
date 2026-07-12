@@ -1,5 +1,4 @@
 module display_section (
-    input wire [5:0] letter_selection,      // Hangi kelimenin veya harfin seçildiği
     input wire [2:0] display_section,       // Hangi ekranın seçildiği (0-5)
     input wire [7:0] letter_code_input,    // Sözlük (harf_secici) modülünden gelen 1-0 kodu
     

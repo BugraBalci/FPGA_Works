@@ -1,68 +1,113 @@
 module main (
+    // Ortak Saat ve Buton/Salterler
+    input wire clk, 
+    input wire buton,
     input wire [8:0] SW,
-	 input wire clk, // clk sinyali
-	 input wire buton,
+    output wire [9:0] LEDR,
     
-    // Alt modülümüz (display_section) bu kablolara dışarıdan elektrik basacak.
+    // I2C Pinleri
+    output wire GSENSOR_CS_N,
+    output wire GSENSOR_SCLK,
+    inout  wire GSENSOR_SDI,
+    input  wire GSENSOR_SDO,
+    
+    // Ekran Pinleri
     output wire [7:0] HEX5, HEX4, HEX3, HEX2, HEX1, HEX0
 );
 
-    // === 1. ŞALTERLERİ (GİRİŞLERİ) AYIRMA ===
-    wire [5:0] letter_selection   = SW[5:0];  // İlk 5 şalter (Harf veya kelime kimliği)
-    wire [2:0] display_section  = SW[8:6];  // Son 3 şalter (Hedef ekran numarası)
-	 
-	 // === 2. FALLING EDGE (DÜŞEN KENAR) DETEKTÖRÜ ===
-	 reg buton_r1, buton_r2;
-	 // Buton sinyalini saat senkronizasyonuna alıyoruz (Meta-stabiliteyi önlemek için)
-	 always @(posedge clk) begin
+    assign GSENSOR_CS_N = 1'b1; 
+    assign LEDR[2] = buton;     
+
+    wire [5:0] letter_selection = SW[5:0];
+    wire [2:0] display_section  = SW[8:6];
+    
+    reg buton_r1, buton_r2;
+    always @(posedge clk) begin
         buton_r1 <= buton;
         buton_r2 <= buton_r1;
     end
-	 
-	 // Düşen kenar formülü: Önceki durumda 1 (bırakılmış) ama şimdiki durumda 0 (basılmış) ise tetiklenir
-    // (Active-Low butonlar için basıldığı an falling edge'dir)
     wire falling_edge = (buton_r2 == 1'b1) && (buton_r1 == 1'b0);
 
-
-    // === 3. GÖRÜNTÜ YAKALAMA (DATA ACQUISITION) REGISTERS ===
-    // Düşen kenar geldiğinde şalterlerdeki değerleri bu kalıcı hafıza odalarına kilitleyeceğiz
-    reg [4:0] lock_letter;
+    reg [5:0] lock_letter;
     reg [2:0] lock_display;
 
     always @(posedge clk) begin
         if (falling_edge) begin
-            lock_letter <= letter_selection; // Sinyali gördüğün an seçimi hafızaya al
-            lock_display  <= display_section;  // Sinyali gördüğün an ekranı hafızaya al
+            lock_letter  <= letter_selection; 
+            lock_display <= display_section;  
         end
     end
-    
-    // === 2. ÇİPLER ARASI SANAL KABLO ===
+
     wire [7:0] connection_cable;
-	
+    wire [7:0] sysA_hex5, sysA_hex4, sysA_hex3, sysA_hex2, sysA_hex1, sysA_hex0;
 
-    // === 3. BİRİNCİ ALT ENTEGRE: SÖZLÜK ÇİPİ ===
-    // DÜZELTME: Buraya tel adı değil, 'harf_secici' modül adı yazıldı!
     letter_selection letter_motor (
-        .letter_id(lock_letter),      // Şalterden gelen 5 bitlik sayıyı sözlüğe ver
-        .letter_code(connection_cable)   // Çıkan 8 bitlik ışık kodunu bizim sanal kabloya bas
+        .letter_id(lock_letter),
+        .letter_code(connection_cable)
     );
 
-    // === 4. İKİNCİ ALT ENTEGRE: DAĞITICI ÇİP ===
     display_section distributor_motor (
-        .letter_selection(lock_letter),     // Şalterden kelime durumunu dinle
-        .display_section(lock_display),   // Şalterden hedef ekranı dinle
-        .letter_code_input(connection_cable),  // Sözlükten gelen harf kodunu al
-        
-        // Dağıtıcı çipten çıkan sonuçları anakartın fiziksel bacaklarına (HEX) bağla
-        .HEX5(HEX5),
-        .HEX4(HEX4),
-        .HEX3(HEX3),
-        .HEX2(HEX2),
-        .HEX1(HEX1),
-        .HEX0(HEX0)
+        .display_section(lock_display),
+        .letter_code_input(connection_cable),
+        .HEX5(sysA_hex5),
+        .HEX4(sysA_hex4),
+        .HEX3(sysA_hex3),
+        .HEX2(sysA_hex2),
+        .HEX1(sysA_hex1),
+        .HEX0(sysA_hex0)
     );
+
+    wire [15:0] accel_x_wire;
+    wire [6:0]  sysB_hex3, sysB_hex2, sysB_hex1, sysB_hex0;
+
+    adxl345_i2c_accel i2c_motor (
+        .clk(clk),
+        .rst_n(buton),
+        .sda(GSENSOR_SDI),   
+        .scl(GSENSOR_SCLK),  
+        .accel_x(accel_x_wire)
+    );
+
+    hex_to_7seg h0 (.hex_val(accel_x_wire[3:0]),   .seg_out(sysB_hex0));
+    hex_to_7seg h1 (.hex_val(accel_x_wire[7:4]),   .seg_out(sysB_hex1));
+    hex_to_7seg h2 (.hex_val(accel_x_wire[11:8]),  .seg_out(sysB_hex2));
+    hex_to_7seg h3 (.hex_val(accel_x_wire[15:12]), .seg_out(sysB_hex3));
+
+    wire sensor_is_active = (lock_letter == 6'd63);
+    
+    assign HEX0 = sensor_is_active ? sysB_hex0 : sysA_hex0;
+    assign HEX1 = sensor_is_active ? sysB_hex1 : sysA_hex1;
+    assign HEX2 = sensor_is_active ? sysB_hex2 : sysA_hex2;
+    assign HEX3 = sensor_is_active ? sysB_hex3 : sysA_hex3;
+    assign HEX4 = sensor_is_active ? 8'b11111111 : sysA_hex4;
+    assign HEX5 = sensor_is_active ? 8'b11111111 : sysA_hex5;
 
 endmodule
 
 
-
+module hex_to_7seg (
+    input wire [3:0] hex_val, 
+    output reg [6:0] seg_out  
+);
+    always @(*) begin
+        case (hex_val)
+            4'h0: seg_out = 8'b11000000;
+            4'h1: seg_out = 8'b11111001;
+            4'h2: seg_out = 8'b10100100;
+            4'h3: seg_out = 8'b10110000;
+            4'h4: seg_out = 8'b10011001;
+            4'h5: seg_out = 8'b10010010;
+            4'h6: seg_out = 8'b10000010;
+            4'h7: seg_out = 8'b11111000;
+            4'h8: seg_out = 8'b10000000;
+            4'h9: seg_out = 8'b10010000;
+            4'hA: seg_out = 8'b10001000;
+            4'hB: seg_out = 8'b10000011;
+            4'hC: seg_out = 8'b11000110;
+            4'hD: seg_out = 8'b10100001;
+            4'hE: seg_out = 8'b10000110;
+            4'hF: seg_out = 8'b10001110;
+            default: seg_out = 8'b11111111;
+        endcase
+    end
+endmodule
