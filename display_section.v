@@ -1,6 +1,6 @@
 module display_section (
     input wire [2:0] display_section,       // Hangi ekranın seçildiği (0-5)
-    input wire [7:0] letter_code_input,    // Sözlük (harf_secici) modülünden gelen 1-0 kodu
+    input wire [7:0] code_output_input,    // Sözlük (harf_secici) modülünden gelen 1-0 kodu
     
     output reg [7:0] HEX5, HEX4, HEX3, HEX2, HEX1, HEX0 // Doğrudan ekranlara giden bacaklar
 );
@@ -32,12 +32,12 @@ module display_section (
         // Yukarıdaki özel durumlar yoksa, sözlükten gelen harfi istenen ekrana bas
         else begin
             case(display_section)
-                3'd0: HEX0 = letter_code_input;
-                3'd1: HEX1 = letter_code_input;
-                3'd2: HEX2 = letter_code_input;
-                3'd3: HEX3 = letter_code_input;
-                3'd4: HEX4 = letter_code_input;
-                3'd5: HEX5 = letter_code_input;
+                3'd0: HEX0 = code_output_input;
+                3'd1: HEX1 = code_output_input;
+                3'd2: HEX2 = code_output_input;
+                3'd3: HEX3 = code_output_input;
+                3'd4: HEX4 = code_output_input;
+                3'd5: HEX5 = code_output_input;
             endcase
         end
         

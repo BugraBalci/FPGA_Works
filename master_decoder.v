@@ -1,4 +1,4 @@
-module letter_selection (
+module master_decoder (
     input wire [5:0] id_input,
     output reg [7:0] code_output
 );

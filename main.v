@@ -18,7 +18,7 @@ module main (
     assign GSENSOR_CS_N = 1'b1; 
     assign LEDR[2] = buton;     
 
-    wire [5:0] letter_selection = SW[5:0];
+    wire [5:0] master_decoder = SW[5:0];
     wire [2:0] display_section  = SW[8:6];
     
     reg buton_r1, buton_r2;
@@ -33,22 +33,25 @@ module main (
 
     always @(posedge clk) begin
         if (falling_edge) begin
-            lock_letter  <= letter_selection; 
+            lock_letter  <= master_decoder; 
             lock_display <= display_section;  
         end
     end
 
+    // =========================================================================
+    // SİSTEM A: HARFLER
+    // =========================================================================
     wire [7:0] connection_cable;
     wire [7:0] sysA_hex5, sysA_hex4, sysA_hex3, sysA_hex2, sysA_hex1, sysA_hex0;
 
-    letter_selection letter_motor (
-        .letter_id(lock_letter),
-        .letter_code(connection_cable)
+    master_decoder letter_motor (
+        .id_input(lock_letter),
+        .code_output(connection_cable)
     );
 
     display_section distributor_motor (
         .display_section(lock_display),
-        .letter_code_input(connection_cable),
+        .code_output_input(connection_cable), // DÜZELTİLDİ: Eski orijinal ismi
         .HEX5(sysA_hex5),
         .HEX4(sysA_hex4),
         .HEX3(sysA_hex3),
@@ -57,8 +60,11 @@ module main (
         .HEX0(sysA_hex0)
     );
 
+    // =========================================================================
+    // SİSTEM B: İVMEÖLÇER
+    // =========================================================================
     wire [15:0] accel_x_wire;
-    wire [6:0]  sysB_hex3, sysB_hex2, sysB_hex1, sysB_hex0;
+    wire [7:0]  sysB_hex3, sysB_hex2, sysB_hex1, sysB_hex0; // DÜZELTİLDİ: 8-Bit (7:0) oldular!
 
     adxl345_i2c_accel i2c_motor (
         .clk(clk),
@@ -68,46 +74,22 @@ module main (
         .accel_x(accel_x_wire)
     );
 
-    hex_to_7seg h0 (.hex_val(accel_x_wire[3:0]),   .seg_out(sysB_hex0));
-    hex_to_7seg h1 (.hex_val(accel_x_wire[7:4]),   .seg_out(sysB_hex1));
-    hex_to_7seg h2 (.hex_val(accel_x_wire[11:8]),  .seg_out(sysB_hex2));
-    hex_to_7seg h3 (.hex_val(accel_x_wire[15:12]), .seg_out(sysB_hex3));
+    master_decoder h0 (.id_input({2'b00, accel_x_wire[3:0]}),   .code_output(sysB_hex0));
+    master_decoder h1 (.id_input({2'b00, accel_x_wire[7:4]}),   .code_output(sysB_hex1));
+    master_decoder h2 (.id_input({2'b00, accel_x_wire[11:8]}),  .code_output(sysB_hex2));
+    master_decoder h3 (.id_input({2'b00, accel_x_wire[15:12]}), .code_output(sysB_hex3));
 
-    wire sensor_is_active = (lock_letter == 6'd63);
+    // =========================================================================
+    // TRAFİK POLİSİ
+    // =========================================================================
+    wire sensor_aktif_mi = (lock_letter == 6'd63);
     
-    assign HEX0 = sensor_is_active ? sysB_hex0 : sysA_hex0;
-    assign HEX1 = sensor_is_active ? sysB_hex1 : sysA_hex1;
-    assign HEX2 = sensor_is_active ? sysB_hex2 : sysA_hex2;
-    assign HEX3 = sensor_is_active ? sysB_hex3 : sysA_hex3;
-    assign HEX4 = sensor_is_active ? 8'b11111111 : sysA_hex4;
-    assign HEX5 = sensor_is_active ? 8'b11111111 : sysA_hex5;
+    assign HEX0 = sensor_aktif_mi ? sysB_hex0 : sysA_hex0;
+    assign HEX1 = sensor_aktif_mi ? sysB_hex1 : sysA_hex1;
+    assign HEX2 = sensor_aktif_mi ? sysB_hex2 : sysA_hex2;
+    assign HEX3 = sensor_aktif_mi ? sysB_hex3 : sysA_hex3;
+    
+    assign HEX4 = sensor_aktif_mi ? 8'b11111111 : sysA_hex4;
+    assign HEX5 = sensor_aktif_mi ? 8'b11111111 : sysA_hex5;
 
-endmodule
-
-
-module hex_to_7seg (
-    input wire [3:0] hex_val, 
-    output reg [6:0] seg_out  
-);
-    always @(*) begin
-        case (hex_val)
-            4'h0: seg_out = 8'b11000000;
-            4'h1: seg_out = 8'b11111001;
-            4'h2: seg_out = 8'b10100100;
-            4'h3: seg_out = 8'b10110000;
-            4'h4: seg_out = 8'b10011001;
-            4'h5: seg_out = 8'b10010010;
-            4'h6: seg_out = 8'b10000010;
-            4'h7: seg_out = 8'b11111000;
-            4'h8: seg_out = 8'b10000000;
-            4'h9: seg_out = 8'b10010000;
-            4'hA: seg_out = 8'b10001000;
-            4'hB: seg_out = 8'b10000011;
-            4'hC: seg_out = 8'b11000110;
-            4'hD: seg_out = 8'b10100001;
-            4'hE: seg_out = 8'b10000110;
-            4'hF: seg_out = 8'b10001110;
-            default: seg_out = 8'b11111111;
-        endcase
-    end
 endmodule
