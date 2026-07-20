@@ -51,7 +51,7 @@ module main (
 
     display_section distributor_motor (
         .display_section(lock_display),
-        .code_output_input(connection_cable), // DÜZELTİLDİ: Eski orijinal ismi
+        .code_output_input(connection_cable), 
         .HEX5(sysA_hex5),
         .HEX4(sysA_hex4),
         .HEX3(sysA_hex3),
@@ -59,12 +59,17 @@ module main (
         .HEX1(sysA_hex1),
         .HEX0(sysA_hex0)
     );
+	 
+	
+	 
 
     // =========================================================================
     // SİSTEM B: İVMEÖLÇER
     // =========================================================================
     wire [15:0] accel_x_wire;
     wire [7:0]  sysB_hex3, sysB_hex2, sysB_hex1, sysB_hex0; // DÜZELTİLDİ: 8-Bit (7:0) oldular!
+	 wire [15:0] abs_val;
+	 wire is_negative;
 
     adxl345_i2c_accel i2c_motor (
         .clk(clk),
@@ -73,16 +78,47 @@ module main (
         .scl(GSENSOR_SCLK),  
         .accel_x(accel_x_wire)
     );
+	 
+	 
+	 average_acceleration avg_acc(
+			.rst_n(buton),
+			.clk(clk),
+			.current_acceleration(accel_x_wire),
+			.is_negative(is_negative),
+			.absolutely_acceleration(abs_val)
+	 );
+	 
+	 
+	 //artık verilerin işlenmesi lazım ve o şekilde dönüp kullanılması lazım
+	 wire [3:0] digit2 = (abs_val / 100) % 10; // Yüzler basamağı
+    wire [3:0] digit1 = (abs_val / 10)  % 10; // Onlar basamağı
+    wire [3:0] digit0 = (abs_val)       % 10; // Birler basamağı
+	 
+	 // Eksi işareti çıkacak mı? (Eksiyse 18. kod, Artıysa 19. kod)
+	 wire [5:0] sign_code = is_negative ? 6'd37 : 6'd38; // is_negatif
+	 
+	 
 
-    master_decoder h0 (.id_input({2'b00, accel_x_wire[3:0]}),   .code_output(sysB_hex0));
-    master_decoder h1 (.id_input({2'b00, accel_x_wire[7:4]}),   .code_output(sysB_hex1));
-    master_decoder h2 (.id_input({2'b00, accel_x_wire[11:8]}),  .code_output(sysB_hex2));
-    master_decoder h3 (.id_input({2'b00, accel_x_wire[15:12]}), .code_output(sysB_hex3));
+    master_decoder h0 (.id_input({2'b00, digit0}),  .code_output(sysB_hex0));
+    master_decoder h1 (.id_input({2'b00, digit1}),  .code_output(sysB_hex1));
+    master_decoder h2 (.id_input({2'b00, digit2}),  .code_output(sysB_hex2));
+    master_decoder h3 (.id_input(sign_code), .code_output(sysB_hex3));
 
     // =========================================================================
-    // TRAFİK POLİSİ
+    // DECODER ILE DISPLAYE HANGİ SECENEGİN GİDECEİĞİBİ BELİRLER
+	 // =========================================================================
+	 // =========================================================================
+    // TRAFİK POLİSİ (MUX) - YENİ VIP ÖNCELİK SİSTEMİ
     // =========================================================================
-    wire sensor_aktif_mi = (lock_letter == 6'd63);
+    
+    // =========================================================================
+    // TRAFİK POLİSİ (MUX)
+    // =========================================================================
+    // 1. KURAL: Hata var mı? (Adam 6 veya 7 numaralı ekranı mı seçmiş?)
+    //wire hata_var_mi = (lock_display == 3'd6 || lock_display == 3'd7);
+    
+    // 2. KURAL: Sensör sadece şalter 63'teyse VE HATA YOKSA aktif olsun!&& !hata_var_mi
+    wire sensor_aktif_mi = (lock_letter == 6'd63) ;
     
     assign HEX0 = sensor_aktif_mi ? sysB_hex0 : sysA_hex0;
     assign HEX1 = sensor_aktif_mi ? sysB_hex1 : sysA_hex1;

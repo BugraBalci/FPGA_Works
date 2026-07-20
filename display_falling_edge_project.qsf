@@ -116,7 +116,7 @@ set_location_assignment PIN_D17 -to HEX0[5]
 set_location_assignment PIN_C17 -to HEX0[6]
 set_location_assignment PIN_D15 -to HEX0[7]
 
-# === 8 ADET SWITCH (SW0 - SW7) PİN ATAMALARI ===
+# === 9 ADET SWITCH (SW0 - SW8) PİN ATAMALARI ===
 set_location_assignment PIN_C10 -to SW[0]
 set_location_assignment PIN_C11 -to SW[1]
 set_location_assignment PIN_D12 -to SW[2]
@@ -124,8 +124,8 @@ set_location_assignment PIN_C12 -to SW[3]
 set_location_assignment PIN_A12 -to SW[4]
 set_location_assignment PIN_B12 -to SW[5]
 set_location_assignment PIN_A13 -to SW[6]
-set_location_assignment PIN_B14 -to SW[7]
-set_location_assignment PIN_F15 -to SW[8]
+set_location_assignment PIN_A14 -to SW[7]
+set_location_assignment PIN_B14 -to SW[8]
 
 set_global_assignment -name VERILOG_FILE main.v
 set_global_assignment -name VERILOG_FILE display_section.v
@@ -154,4 +154,5 @@ set_instance_assignment -name IO_STANDARD "3.3-V LVTTL" -to GSENSOR_SDO
 
 
 set_global_assignment -name VERILOG_FILE master_decoder.v
+set_global_assignment -name VERILOG_FILE average_acceleration.v
 set_instance_assignment -name PARTITION_HIERARCHY root_partition -to | -section_id Top
